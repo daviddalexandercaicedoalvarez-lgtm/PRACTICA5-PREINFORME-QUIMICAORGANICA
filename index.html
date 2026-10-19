@@ -1,0 +1,1468 @@
+<!doctype html>
+<html lang="es">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Plataforma Educativa (Fix)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .hidden-by-default {
+            display: none;
+        }
+        .card {
+            perspective: 1000px;
+        }
+        .card-inner {
+            position: relative;
+            width: 240px;
+            height: 140px;
+            text-align: center;
+            transition: transform 0.6s;
+            transform-style: preserve-3d;
+        }
+        .card:hover .card-inner {
+            transform: rotateY(180deg);
+        }
+        .card-front, .card-back {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            backface-visibility: hidden;
+            border-radius: 0.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 500;
+            padding: 0.75rem;
+            box-sizing: border-box;
+        }
+        .card-front {
+            background-color: #059669;
+            color: white;
+        }
+        .card-back {
+            background-color: #b91c1c;
+            color: white;
+            transform: rotateY(180deg);
+        }
+        .draggable {
+            cursor: grab;
+            background-color: #dbeafe;
+            padding: 0.5rem;
+            border-radius: 0.5rem;
+            margin: 0.25rem;
+            display: inline-block;
+            user-select: none;
+        }
+        .dropzone {
+            border: 2px dashed #94a3b8;
+            padding: 1rem;
+            border-radius: 0.5rem;
+            min-height: 50px;
+            transition: border-color 0.25s, background-color 0.25s;
+        }
+        .btn-file {
+            background: #2563eb;
+            color: white;
+            padding: .4rem .75rem;
+            border-radius: .4rem;
+            cursor: pointer;
+        }
+        pre.map {
+            white-space: pre-wrap;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
+        }
+        .link-img {
+            color: #1d4ed8;
+            text-decoration: underline;
+            cursor: pointer;
+        }
+    </style>
+</head>
+
+<body class="bg-gray-50 text-gray-800">
+    <div class="max-w-6xl mx-auto p-6">
+        <header class="mb-6">
+            <h1 class="text-3xl font-bold text-indigo-600">Plataforma Educativa Interactiva</h1>
+            <p class="text-sm text-gray-600 mt-2">
+                Recursos sobre <strong>cualquier contenido educativo, que desees agregar</strong>. Incluye quizzes secuenciales, glosario, flashcards, estructuras (imágenes via links), casos y actividades interactivas. Progreso guardado localmente.
+            </p>
+
+            <nav class="mt-4 flex flex-wrap gap-2">
+                <button class="btn" data-target="home">Inicio</button>
+                <button class="btn" data-target="quiz">Quiz</button>
+                <button class="btn" data-target="gloss">Glosario</button>
+                <button class="btn" data-target="flash">Flashcards</button>
+                <button class="btn" data-target="estructuras">Estructuras</button>
+                <button class="btn" data-target="casos">Casos</button>
+                <button class="btn" data-target="interactivo">Interactivo</button>
+                <button class="btn" data-target="map">Mapas</button>
+                <button class="btn" data-target="dash">Dashboard</button>
+                <label class="btn-file ml-2">
+                    Importar contenido (JSON)
+                    <input id="fileInput" type="file" accept="application/json" style="display:none">
+                </label>
+                <button id="exportJSON" class="btn">Exportar contenido</button>
+            </nav>
+        </header>
+
+        <!-- Home -->
+        <section id="home" class="bg-white p-5 rounded shadow">
+            <h2 id="homeTitle" class="text-xl font-semibold mb-2">Bienvenido</h2>
+
+            <p id="homeDescription" class="text-sm text-gray-700">
+                La plataforma está diseñada para estudiar y practicar los tres bloques fundamentales:
+                <strong>Endomembrana</strong> (síntesis, procesamiento y tráfico de proteínas/lípidos),
+                <strong>Estructuras y Procesos</strong> (ribosomas, lisosomas, RE, Golgi y mecanismos moleculares)
+                y <strong>Mitocondrias y Metabolismo – Plastidios y Cloroplastos</strong> (bioenergética, ATP, fotosíntesis).
+                Usa las herramientas interactivas para autoevaluación.
+            </p>
+
+            <details class="mt-4">
+                <summary class="cursor-pointer font-semibold">
+                    Editar contenido de Inicio (JSON)
+                </summary>
+
+                <textarea id="homeJSON"
+                    style="width:100%;height:160px"
+                    class="mt-2 border rounded p-2 font-mono text-sm">
+                    {
+                    "title": "Bienvenido",
+                    "description": "Texto de introducción editable desde JSON."
+                    }
+                </textarea>
+
+                <div class="mt-2 flex gap-2">
+                    <button id="loadHomeJSON" class="px-3 py-1 bg-green-600 text-white rounded">
+                        Cargar Inicio
+                    </button>
+                    <button id="exportHomeJSON" class="px-3 py-1 bg-gray-600 text-white rounded">
+                        Exportar Inicio
+                    </button>
+                </div>
+            </details>
+        </section>
+
+        <!-- Quiz -->
+        <section id="quiz" class="hidden-by-default bg-white p-5 rounded shadow">
+            <h2 class="text-lg font-semibold mb-2">Quiz (secuencial por tema)</h2>
+            <div class="flex gap-3 mb-3">
+                <button id="prevQ" class="px-3 py-1 bg-gray-500 text-white rounded">Anterior</button>
+                <button id="nextQ" class="px-3 py-1 bg-indigo-600 text-white rounded">Siguiente</button>
+                <button id="showAll" class="px-3 py-1 bg-gray-600 text-white rounded">Mostrar preguntas (JSON)</button>
+                <select id="quizTopic" class="rounded border px-2"></select>
+            </div>
+
+            <div id="quizArea">
+                <p id="qText" class="font-medium mb-2">
+                    Cargando pregunta...
+                </p>
+                <div id="qOptions" class="space-y-2 mb-3"></div>
+                <button id="checkA" class="px-3 py-1 bg-amber-500 text-white rounded">Verificar</button>
+                <p id="qResult" class="mt-2 text-sm"></p>
+                <p class="text-xs text-gray-500 mt-2">
+                    Pregunta <span id="qNumber">0</span> de <span id="qTotal">0</span>
+                </p>
+            </div>
+
+            <details class="mt-4">
+                <summary class="cursor-pointer">Ver/Editar inventario de preguntas (JSON)</summary>
+                <textarea id="questionsJSON" style="width:100%;height:200px" class="mt-2 border rounded p-2 font-mono text-sm"></textarea>
+                <div class="mt-2">
+                    <button id="loadQuestions" class="px-3 py-1 bg-green-600 text-white rounded">Cargar preguntas desde JSON</button>
+                </div>
+            </details>
+            <details class="mt-4">
+                <summary class="cursor-pointer">Ver/Editar bloques del quiz (JSON)</summary>
+                <textarea id="quizTopicsJSON" style="width:100%;height:160px" class="mt-2 border rounded p-2 font-mono text-sm"></textarea>
+                <div class="mt-2">
+                    <button id="loadQuizTopics" class="px-3 py-1 bg-green-600 text-white rounded">Cargar bloques desde JSON</button>
+                    <button id="exportQuizTopics" class="px-3 py-1 bg-gray-600 text-white rounded">Exportar bloques</button>
+                </div>
+            </details>
+        </section>
+
+        <!-- Glosario -->
+        <section id="gloss" class="hidden-by-default bg-white p-5 rounded shadow">
+            <h2 class="text-lg font-semibold mb-2">Glosario (términos técnicos)</h2>
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <input id="glossSearch" placeholder="Buscar término..." class="w-full p-2 border rounded mb-3" />
+                    <div id="glossList" style="max-height:420px;overflow:auto"></div>
+                </div>
+                <div>
+                    <h3 class="font-semibold">Agregar/editar término</h3>
+                    <input id="termInput" placeholder="Término" class="w-full p-2 border rounded mb-2" />
+                    <textarea id="defInput" placeholder="Definición" class="w-full p-2 border rounded mb-2" style="height:160px"></textarea>
+                    <div class="flex gap-2">
+                        <button id="addTerm" class="px-3 py-1 bg-green-600 text-white rounded">Agregar término</button>
+                        <button id="clearGloss" class="px-3 py-1 bg-red-500 text-white rounded">Borrar todo</button>
+                    </div>
+                </div>
+            </div>
+
+            <details class="mt-4">
+                <summary>Exportar/Importar glosario (JSON)</summary>
+                <textarea id="glossJSON" style="width:100%;height:140px" class="mt-2 border rounded p-2 font-mono text-sm"></textarea>
+                <div class="mt-2">
+                    <button id="importGloss" class="px-3 py-1 bg-blue-600 text-white rounded">Importar glosario</button>
+                    <button id="exportGloss" class="px-3 py-1 bg-gray-600 text-white rounded">Exportar glosario</button>
+                </div>
+            </details>
+        </section>
+
+        <!-- Flashcards -->
+        <section id="flash" class="hidden-by-default bg-white p-5 rounded shadow">
+            <h2 class="text-lg font-semibold mb-2">Flashcards (giran al hacer hover o clic)</h2>
+            <div class="flex flex-wrap gap-4" id="flashContainer" style="min-height:160px"></div>
+
+            <details class="mt-4">
+                <summary>Administrar flashcards (JSON)</summary>
+                <textarea id="flashJSON" style="width:100%;height:160px" class="mt-2 border rounded p-2 font-mono text-sm"></textarea>
+                <div class="mt-2">
+                    <button id="loadFlash" class="px-3 py-1 bg-green-600 text-white rounded">Cargar flashcards</button>
+                    <button id="exportFlash" class="px-3 py-1 bg-gray-600 text-white rounded">Exportar flashcards</button>
+                </div>
+            </details>
+        </section>
+
+        <!-- Estructuras -->
+        <section id="estructuras" class="hidden-by-default bg-white p-5 rounded shadow">
+            <h2 class="text-lg font-semibold mb-2">Estructuras: identificación (imágenes como links)</h2>
+            <p class="text-sm text-gray-700 mb-3">
+                Haz clic en el enlace para abrir la imagen en nueva pestaña y luego elige la opción correcta.
+            </p>
+
+            <div id="structuresArea" class="space-y-4"></div>
+
+            <details class="mt-4">
+                <summary>Administrar estructuras (JSON)</summary>
+                <textarea id="structuresJSON" style="width:100%;height:160px" class="mt-2 border rounded p-2 font-mono text-sm"></textarea>
+                <div class="mt-2">
+                    <button id="loadStructures" class="px-3 py-1 bg-green-600 text-white rounded">Cargar estructuras</button>
+                    <button id="exportStructures" class="px-3 py-1 bg-gray-600 text-white rounded">Exportar estructuras</button>
+                </div>
+            </details>
+        </section>
+
+        <!-- Casos -->
+        <section id="casos" class="hidden-by-default bg-white p-5 rounded shadow">
+            <h2 class="text-lg font-semibold mb-2">Casos de análisis (escenarios clínico/experimentales)</h2>
+            <div id="casesArea"></div>
+
+            <details class="mt-4">
+                <summary>Administrar casos (JSON)</summary>
+                <textarea id="casesJSON" style="width:100%;height:160px" class="mt-2 border rounded p-2 font-mono text-sm"></textarea>
+                <div class="mt-2">
+                    <button id="loadCases" class="px-3 py-1 bg-green-600 text-white rounded">Cargar casos</button>
+                    <button id="exportCases" class="px-3 py-1 bg-gray-600 text-white rounded">Exportar casos</button>
+                </div>
+            </details>
+        </section>
+
+        <!-- Interactivo -->
+        <section id="interactivo" class="hidden-by-default bg-white p-5 rounded shadow">
+            <h2 class="text-lg font-semibold mb-2">Interactivo: arrastra y suelta / completar</h2>
+            <p class="text-sm mb-3">
+                Ejercicios arrastrar-soltar y completar. Los ejercicios se cargan desde JSON (50 ítems) para mantener compatibilidad.
+            </p>
+
+            <div id="interactiveArea" class="space-y-4"></div>
+
+            <details class="mt-4">
+                <summary>Administrar interactivos (JSON)</summary>
+                <textarea id="interJSON" style="width:100%;height:160px" class="mt-2 border rounded p-2 font-mono text-sm"></textarea>
+                <div class="mt-2">
+                    <button id="loadInter" class="px-3 py-1 bg-green-600 text-white rounded">Cargar interactivos</button>
+                    <button id="exportInter" class="px-3 py-1 bg-gray-600 text-white rounded">Exportar interactivos</button>
+                </div>
+            </details>
+        </section>
+
+        <!-- Mapas -->
+        <section id="map" class="hidden-by-default bg-white p-5 rounded shadow">
+            <h2 class="text-lg font-semibold mb-2">Mapas conceptuales</h2>
+            <div id="mapsDisplay" class="grid grid-cols-1 gap-4 mb-3"></div>
+
+            <details class="mt-4">
+                <summary>Administrar mapas (JSON)</summary>
+                <textarea id="mapsJSON" style="width:100%;height:160px" class="mt-2 border rounded p-2 font-mono text-sm"></textarea>
+                <div class="mt-2">
+                    <button id="loadMaps" class="px-3 py-1 bg-green-600 text-white rounded">Cargar mapas</button>
+                    <button id="exportMaps" class="px-3 py-1 bg-gray-600 text-white rounded">Exportar mapas</button>
+                </div>
+            </details>
+        </section>
+
+        <!-- Dashboard -->
+        <section id="dash" class="hidden-by-default bg-white p-5 rounded shadow">
+            <h2 class="text-lg font-semibold mb-2">Dashboard de progreso</h2>
+
+            <p class="text-sm">
+                Puntaje total:
+                <span id="score">0</span> /
+                <span id="maxScore">0</span>
+            </p>
+
+            <p class="text-sm mt-1">
+                Progreso general:
+                <span id="scorePercent">0%</span>
+            </p>
+
+            <button id="reset" class="mt-2 px-3 py-1 bg-red-500 text-white rounded">
+                Reiniciar progreso
+            </button>
+
+            <div class="mt-4">
+                <h3 class="font-semibold">Progreso por sección</h3>
+                <ul class="list-disc ml-6 text-sm">
+                    <li>Quiz: <span id="progressQuiz" class="font-semibold text-blue-600">0 / 0 - 0%</span></li>
+                    <li>Glosario: <span id="progressGloss" class="font-semibold text-green-600">0 / 0 - 0%</span></li>
+                    <li>Flashcards: <span id="progressFlash" class="font-semibold text-purple-600">0 / 0 - 0%</span></li>
+                    <li>Estructuras: <span id="progressStructures" class="font-semibold text-indigo-600">0 / 0 - 0%</span></li>
+                    <li>Casos: <span id="progressCases" class="font-semibold text-red-600">0 / 0 - 0%</span></li>
+                    <li>Interactivo: <span id="progressInteractive" class="font-semibold text-amber-600">0 / 0 - 0%</span></li>
+                    <li>Mapas: <span id="progressMaps" class="font-semibold text-teal-600">0 / 0 - 0%</span></li>
+                </ul>
+            </div>
+        </section>
+    </div>
+
+    <script>
+        function normalizeText(value) {
+            return String(value || '')
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .toLowerCase()
+            .replace(/\s+/g, ' ')
+            .trim();
+        }
+
+        /* --------------------------
+  ESTRUCTURA DE DATOS (DB) - muestra mínima inicial para pruebas.
+  Reemplaza con tu JSON grande importándolo.
+-------------------------- */
+        let DB = {
+            "quizTopics": [ {
+                "value": "fundamentos",
+                "label": "1) Fundamentos y clasificación de los alcoholes"
+            },
+                {
+                    "value": "reacciones",
+                    "label": "2) Reacciones químicas y pruebas de identificación"
+                },
+                {
+                    "value": "etanol",
+                    "label": "3) Esterificación, prueba del yodoformo y seguridad"
+                }],
+            "questions": [ {
+                "id": "q1",
+                "topic": "fundamentos",
+                "text": "¿Qué grupo funcional caracteriza a los alcoholes?",
+                "options": ["Grupo carbonilo (C=O)",
+                    "Grupo hidroxilo (−OH) unido a un carbono saturado",
+                    "Grupo carboxilo (−COOH)",
+                    "Grupo amino (−NH₂)"],
+                "answer": 1,
+                "explain": "Los alcoholes contienen el grupo hidroxilo (−OH) unido a un carbono saturado. Su estructura general se representa como R−OH, donde R corresponde a un grupo orgánico."
+            },
+                {
+                    "id": "q2",
+                    "topic": "fundamentos",
+                    "text": "¿Cómo se clasifica un alcohol primario según el número de grupos carbonados unidos al carbono que porta el −OH?",
+                    "options": ["El carbono unido al −OH está enlazado a un solo carbono o a ninguno, como en el metanol",
+                        "El carbono unido al −OH está enlazado a dos carbonos",
+                        "El carbono unido al −OH está enlazado a tres carbonos",
+                        "El grupo −OH está unido directamente a un carbono del anillo aromático"],
+                    "answer": 0,
+                    "explain": "En un alcohol primario, el carbono que porta el −OH está unido como máximo a un carbono. El metanol es un caso especial porque ese carbono no está unido a ningún otro carbono. En los secundarios está unido a dos y en los terciarios a tres."
+                },
+                {
+                    "id": "q3",
+                    "topic": "fundamentos",
+                    "text": "¿Cuál es el orden general de reactividad de los alcoholes con el reactivo de Lucas?",
+                    "options": ["Primario > secundario > terciario",
+                        "Primario = secundario = terciario",
+                        "Terciario > secundario > primario",
+                        "Secundario > primario > terciario"],
+                    "answer": 2,
+                    "explain": "En las condiciones habituales del ensayo de Lucas, los alcoholes terciarios reaccionan generalmente más rápido que los secundarios y estos más rápido que los primarios. La diferencia se relaciona con la facilidad de sustitución del grupo −OH después de su activación."
+                },
+                {
+                    "id": "q4",
+                    "topic": "fundamentos",
+                    "text": "¿Qué resultado general se espera al oxidar un alcohol primario con un oxidante adecuado?",
+                    "options": ["Formación exclusiva de un alqueno",
+                        "Formación directa de una amida",
+                        "Formación exclusiva de un éter",
+                        "Formación de un aldehído y, bajo condiciones oxidantes más intensas, de un ácido carboxílico"],
+                    "answer": 3,
+                    "explain": "La oxidación de un alcohol primario puede producir primero un aldehído. Si el aldehído continúa oxidándose, puede formarse un ácido carboxílico. El producto depende del oxidante y de las condiciones experimentales."
+                },
+                {
+                    "id": "q5",
+                    "topic": "fundamentos",
+                    "text": "¿Qué producto se forma normalmente al oxidar un alcohol secundario?",
+                    "options": ["Una cetona",
+                        "Un ácido carboxílico en todos los casos",
+                        "Un éster directamente",
+                        "Un alcano"],
+                    "answer": 0,
+                    "explain": "La oxidación de un alcohol secundario transforma el carbono que porta el grupo −OH en un grupo carbonilo, formando una cetona. La oxidación posterior suele requerir condiciones más enérgicas y puede implicar ruptura de enlaces carbono-carbono."
+                },
+                {
+                    "id": "q6",
+                    "topic": "fundamentos",
+                    "text": "¿Por qué los alcoholes pueden comportarse como ácidos y como bases débiles?",
+                    "options": ["Porque todos se ionizan completamente en agua",
+                        "Porque pueden ceder el protón del grupo −OH y el oxígeno puede aceptar un protón mediante sus pares electrónicos",
+                        "Porque contienen simultáneamente un grupo amino y un grupo carboxilo",
+                        "Porque no presentan enlaces polares"],
+                    "answer": 1,
+                    "explain": "El enlace O−H permite que un alcohol ceda un protón en condiciones apropiadas, aunque generalmente es un ácido débil. El oxígeno posee pares electrónicos libres que pueden aceptar un protón, por lo que el alcohol también puede comportarse como base débil."
+                },
+                {
+                    "id": "q7",
+                    "topic": "reacciones",
+                    "text": "¿Cuál es la ecuación general balanceada de la reacción de un alcohol con sodio metálico?",
+                    "options": ["ROH + Na → RNa + H₂O",
+                        "ROH + Na → RONa + H₂",
+                        "2ROH + 2Na → 2RONa + H₂↑",
+                        "2ROH + Na₂O → 2RNa + O₂"],
+                    "answer": 2,
+                    "explain": "El sodio sustituye el hidrógeno del grupo hidroxilo y forma un alcóxido de sodio, liberando hidrógeno gaseoso. La ecuación balanceada es 2ROH + 2Na → 2RONa + H₂↑. La reacción puede ser exotérmica."
+                },
+                {
+                    "id": "q8",
+                    "topic": "reacciones",
+                    "text": "En la prueba con sodio de la práctica, ¿qué volúmenes y muestras deben colocarse inicialmente en los tres tubos?",
+                    "options": ["2 mL de reactivo de Lucas y 1 mL de cada alcohol",
+                        "1 mL de solución sulfocrómica y 0,5 mL de cada alcohol",
+                        "1 mL de etanol y 5 mL de agua en cada tubo",
+                        "Una pequeña pieza de sodio y 0,5 mL de n-butanol, sec-butanol o tert-butanol, respectivamente"],
+                    "answer": 3,
+                    "explain": "Se utilizan tres tubos limpios y secos, cada uno con una pequeña pieza de sodio. Se agrega 0,5 mL de n-butanol al primer tubo, 0,5 mL de sec-butanol al segundo y 0,5 mL de tert-butanol al tercero. La guía indica observar la rapidez de reacción."
+                },
+                {
+                    "id": "q9",
+                    "topic": "reacciones",
+                    "text": "¿Qué gas se libera durante la reacción de un alcohol con sodio metálico?",
+                    "options": ["Hidrógeno (H₂)",
+                        "Oxígeno (O₂)",
+                        "Dióxido de carbono (CO₂)",
+                        "Cloro (Cl₂)"],
+                    "answer": 0,
+                    "explain": "El hidrógeno se forma cuando dos protones procedentes de los grupos −OH se combinan durante la reacción con sodio. Es inflamable, por lo que deben evitarse llamas y fuentes de ignición."
+                },
+                {
+                    "id": "q10",
+                    "topic": "reacciones",
+                    "text": "¿Qué función cumple principalmente el ZnCl₂ en el reactivo de Lucas?",
+                    "options": ["Actuar como fuente de oxígeno para oxidar el alcohol",
+                        "Neutralizar por completo el HCl",
+                        "Actuar como ácido de Lewis y facilitar la activación del grupo hidroxilo",
+                        "Formar un precipitado amarillo de yodoformo"],
+                    "answer": 2,
+                    "explain": "El ZnCl₂ es un ácido de Lewis que coordina con el oxígeno del alcohol y facilita la sustitución del grupo hidroxilo. El HCl proporciona el medio ácido y el cloruro que participa en la formación del cloruro de alquilo."
+                },
+                {
+                    "id": "q11",
+                    "topic": "reacciones",
+                    "text": "En el ensayo de Lucas, ¿qué indica generalmente la aparición de turbidez o de una suspensión blanquecina?",
+                    "options": ["La formación de un gas incoloro soluble",
+                        "La formación de un cloruro de alquilo poco soluble en el medio acuoso",
+                        "La formación de cristales amarillos de CHI₃",
+                        "La reducción del Cr(VI) a Cr(III)"],
+                    "answer": 1,
+                    "explain": "La turbidez suele indicar que se ha formado un cloruro de alquilo poco soluble. En las condiciones del ensayo, la rapidez de aparición de la turbidez permite comparar cualitativamente la reactividad de los alcoholes."
+                },
+                {
+                    "id": "q12",
+                    "topic": "reacciones",
+                    "text": "¿Cuál es la ecuación general simplificada de la reacción de Lucas?",
+                    "options": ["ROH + Na → RONa + H₂",
+                        "ROH + CH₃COOH ⇌ RCOOCH₃ + H₂O",
+                        "ROH + I₂ → CHI₃ + O₂",
+                        "ROH + HCl → RCl + H₂O"],
+                    "answer": 3,
+                    "explain": "La transformación global reemplaza el grupo hidroxilo por cloro: ROH + HCl → RCl + H₂O. El mecanismo y la velocidad dependen de la estructura del alcohol y de las condiciones del ensayo."
+                },
+                {
+                    "id": "q13",
+                    "topic": "reacciones",
+                    "text": "¿Qué cambio de color puede indicar la reducción del Cr(VI) durante la oxidación con solución sulfocrómica?",
+                    "options": ["De naranja a verde, por formación de especies de Cr(III)",
+                        "De violeta a amarillo, por formación de CHI₃",
+                        "De azul a rojo, por formación de cobre metálico",
+                        "De incoloro a negro, por formación de carbono"],
+                    "answer": 0,
+                    "explain": "El dicromato que contiene Cr(VI) suele presentar color naranja. Al reducirse a especies de Cr(III), puede aparecer una coloración verde. El cambio de color es una señal cualitativa y debe interpretarse junto con las demás observaciones."
+                },
+                {
+                    "id": "q14",
+                    "topic": "reacciones",
+                    "text": "¿Cuál resultado se espera normalmente en la prueba de oxidación con solución sulfocrómica para n-butanol, sec-butanol y tert-butanol?",
+                    "options": ["Los tres forman exclusivamente cetonas",
+                        "El n-butanol y el sec-butanol forman siempre el mismo producto",
+                        "El n-butanol puede oxidarse a aldehído y después a ácido; el sec-butanol forma una cetona y el tert-butanol suele resistir estas condiciones",
+                        "El tert-butanol se transforma siempre en ácido butanoico sin ruptura de enlaces"],
+                    "answer": 2,
+                    "explain": "El n-butanol es primario y puede oxidarse a butanal y, bajo condiciones adecuadas, a ácido butanoico. El sec-butanol es secundario y puede producir 2-butanona. El tert-butanol es terciario y suele ser resistente a la oxidación bajo las condiciones habituales del ensayo."
+                },
+                {
+                    "id": "q15",
+                    "topic": "reacciones",
+                    "text": "¿Qué condiciones indica la guía para realizar la prueba de oxidación de los alcoholes?",
+                    "options": ["2 mL de reactivo de Lucas y 5 minutos de reposo",
+                        "1 mL de solución sulfocrómica y 0,5 mL del alcohol en cada tubo; agitar durante 2 minutos y, si no hay reacción, calentar en baño María según la guía",
+                        "1 mL de etanol, 1 mL de ácido acético y 5 gotas de NaOH",
+                        "2,5 mL de Lugol y 5 mL de ácido sulfúrico concentrado"],
+                    "answer": 1,
+                    "explain": "Se preparan tres tubos limpios y secos con 1 mL de solución sulfocrómica en cada uno. Se añade 0,5 mL del alcohol correspondiente, se tapan, se agitan durante 2 minutos y se observa. Si no hay reacción visible, la guía indica calentar en baño María. El Cr(VI) es altamente tóxico."
+                },
+                {
+                    "id": "q16",
+                    "topic": "etanol",
+                    "text": "¿Cuál es la reacción global de la esterificación de Fischer entre etanol y ácido acético?",
+                    "options": ["Etanol + sodio → etóxido de sodio + hidrógeno",
+                        "Etanol + HCl → cloroetano + agua",
+                        "Etanol + oxígeno → etano + agua",
+                        "CH₃CH₂OH + CH₃COOH ⇌ CH₃COOCH₂CH₃ + H₂O"],
+                    "answer": 3,
+                    "explain": "El etanol y el ácido acético reaccionan reversiblemente para formar acetato de etilo y agua. El ácido sulfúrico concentrado actúa como catalizador ácido y el calentamiento favorece que la reacción alcance el equilibrio más rápidamente."
+                },
+                {
+                    "id": "q17",
+                    "topic": "etanol",
+                    "text": "¿Qué cantidades y condiciones corresponden a la esterificación de Fischer descrita en la guía?",
+                    "options": ["1 mL de etanol absoluto, 1 mL de ácido acético y aproximadamente 5 gotas de H₂SO₄ concentrado; calentar 2 minutos en baño María, enfriar y verter en aproximadamente 3 mL de agua",
+                        "0,5 mL de cada butanol con sodio y calentamiento directo",
+                        "1 mL de solución sulfocrómica y 2,5 mL de Lugol",
+                        "2 mL de reactivo de Lucas y 5 mL de agua, sin calentamiento"],
+                    "answer": 0,
+                    "explain": "La guía establece mezclar 1 mL de etanol absoluto con 1 mL de ácido acético, añadir aproximadamente 5 gotas de ácido sulfúrico concentrado y calentar durante 2 minutos en baño María. Después se enfría y se vierte en un Erlenmeyer que contiene aproximadamente 3 mL de agua. Se registra el olor característico sin inhalar directamente."
+                },
+                {
+                    "id": "q18",
+                    "topic": "etanol",
+                    "text": "¿Cuál es el producto orgánico principal de la esterificación entre etanol y ácido acético?",
+                    "options": ["Butanona",
+                        "Acetato de etilo",
+                        "Cloruro de etilo",
+                        "Yodoformo"],
+                    "answer": 1,
+                    "explain": "El producto orgánico principal es el acetato de etilo, CH₃COOCH₂CH₃, un éster que presenta un olor característico. La reacción también produce agua y es reversible."
+                },
+                {
+                    "id": "q19",
+                    "topic": "etanol",
+                    "text": "¿Qué observación positiva caracteriza la prueba del yodoformo?",
+                    "options": ["Una suspensión blanca de cloruro de alquilo",
+                        "Una coloración verde por Cr(III)",
+                        "La formación de cristales o precipitado amarillo de CHI₃",
+                        "La liberación de nitrógeno gaseoso"],
+                    "answer": 2,
+                    "explain": "Una prueba positiva se reconoce por la aparición de un precipitado amarillo de yodoformo, CHI₃. El etanol puede dar positivo porque, en las condiciones de reacción, se transforma en acetaldehído, que participa en la reacción haloformo."
+                },
+                {
+                    "id": "q20",
+                    "topic": "etanol",
+                    "text": "¿Cuál es la secuencia correcta de la prueba del yodoformo para etanol descrita en la guía?",
+                    "options": ["Etanol con sodio, calentamiento directo y adición de ácido sulfúrico",
+                        "Etanol con solución sulfocrómica, reposo de 5 minutos y adición de sodio",
+                        "Etanol con reactivo de Lucas, filtración y secado de cristales blancos",
+                        "1 mL de etanol al 95 %, 1 mL de agua y 2,5 mL de Lugol; añadir KOH al 20 % hasta que desaparezca el color violeta o pardo, calentar 3 minutos en baño María, enfriar y añadir 5 mL de agua"],
+                    "answer": 3,
+                    "explain": "La guía indica mezclar 1 mL de etanol al 95 %, 1 mL de agua y 2,5 mL de Lugol. Se añade KOH al 20 % hasta que desaparezca la coloración violeta o parda del Lugol, se calienta 3 minutos en baño María, se enfría y se agregan 5 mL de agua. Se observa si aparecen cristales amarillos de CHI₃."
+                },
+                {
+                    "id": "q21",
+                    "topic": "etanol",
+                    "text": "¿Por qué el etanol puede producir una prueba del yodoformo positiva aunque no sea un alcohol secundario?",
+                    "options": ["Porque contiene un grupo carboxilo",
+                        "Porque puede oxidarse a acetaldehído, CH₃CHO, que presenta la estructura necesaria para la reacción haloformo",
+                        "Porque el Lugol transforma todos los alcoholes en cetonas",
+                        "Porque el etanol contiene yodo en su estructura original"],
+                    "answer": 1,
+                    "explain": "La prueba del yodoformo no se limita a alcoholes secundarios. El etanol puede oxidarse a acetaldehído, que posee el grupo CH₃CO− equivalente necesario para formar CHI₃ bajo las condiciones de la reacción haloformo."
+                },
+                {
+                    "id": "q22",
+                    "topic": "etanol",
+                    "text": "¿Qué diferencia experimental ayuda a distinguir la prueba de Lucas de la prueba de oxidación sulfocrómica?",
+                    "options": ["Lucas puede generar turbidez por formación de RCl; la prueba sulfocrómica puede presentar cambio de naranja a verde por reducción del Cr(VI)",
+                        "Lucas forma cristales amarillos de CHI₃ y la prueba sulfocrómica forma acetato de etilo",
+                        "Ambas pruebas identifican exclusivamente etanol por el mismo mecanismo",
+                        "La prueba sulfocrómica utiliza sodio metálico como reactivo principal"],
+                    "answer": 0,
+                    "explain": "El reactivo de Lucas evalúa la sustitución del grupo hidroxilo y puede producir turbidez por un cloruro de alquilo poco soluble. La solución sulfocrómica evalúa la oxidabilidad del alcohol y puede cambiar de naranja a verde cuando el Cr(VI) se reduce a Cr(III)."
+                },
+                {
+                    "id": "q23",
+                    "topic": "etanol",
+                    "text": "¿Cuál es la razón principal para no acercar directamente la nariz a un tubo de reacción para identificar su olor?",
+                    "options": ["Todos los productos son inodoros",
+                        "El olor elimina la necesidad de utilizar equipo de protección",
+                        "Los vapores pueden ser irritantes o tóxicos; la identificación olfativa directa puede causar exposición peligrosa",
+                        "El olor modifica necesariamente el pH de todas las muestras"],
+                    "answer": 2,
+                    "explain": "No se deben inhalar directamente los vapores de los tubos. Si el procedimiento institucional permite evaluar el olor, debe seguirse la técnica de abaniqueo indicada por el docente, bajo condiciones de ventilación apropiadas y sin exponerse deliberadamente a los vapores."
+                },
+                {
+                    "id": "q24",
+                    "topic": "etanol",       "text": "¿Cuál es la medida de seguridad más importante si queda sodio metálico sin reaccionar al terminar el ensayo?",       "options": [         "Añadir agua inmediatamente en grandes cantidades",         "Desechar el tubo en el lavamanos",         "Acercar una llama para consumir el hidrógeno",         "No añadir agua ni manipularlo por cuenta propia; avisar al docente para que gestione el residuo mediante el procedimiento institucional autorizado"       ],       "answer": 3,       "explain": "El sodio reacciona violentamente con el agua y puede generar calor e hidrógeno inflamable. Aunque la guía menciona un tratamiento con metanol o etanol en ciertas condiciones, esta operación no debe improvisarse: corresponde al personal autorizado, bajo el procedimiento institucional y con controles de seguridad."     },     {       "id": "q25",       "topic": "etanol",       "text": "En la esterificación, se utilizan 1,00 mL de etanol puro. Si su densidad es 0,789 g/mL y su masa molar es 46,07 g/mol, ¿cuál es la cantidad aproximada de etanol?",       "options": [         "0,171 mol",         "0,0171 mol",         "1,71 mol",         "0,00171 mol"       ],       "answer": 1,       "explain": "Primero se calcula la masa: m = ρV = 0,789 g/mL × 1,00 mL = 0,789 g. Luego, n = m/M = 0,789 g ÷ 46,07 g/mol ≈ 0,0171 mol. Es una estimación basada en etanol puro y en los valores proporcionados."     },     {       "id": "q26",       "topic": "etanol",       "text": "En una reacción de esterificación reversible, ¿qué efecto general tiene aumentar la temperatura?",       "options": [         "Acelera la aproximación al equilibrio, pero el desplazamiento del equilibrio depende de la entalpía de reacción y de las condiciones",         "Garantiza que se consuma todo el etanol",         "Elimina el agua y convierte la reacción en irreversible en cualquier condición",         "Impide que el ácido actúe como catalizador"       ],       "answer": 0,       "explain": "El calentamiento suele incrementar la velocidad de reacción, pero no garantiza la conversión completa. La posición del equilibrio depende de la termodinámica y de las cantidades relativas de reactivos y productos; retirar agua o usar exceso de un reactivo puede favorecer la formación de éster."     },     {       "id": "q27",       "topic": "reacciones",       "text": "¿Por qué la comparación de la rapidez de reacción con sodio no debe interpretarse únicamente como una regla absoluta basada en el tipo de alcohol?",       "options": [         "Porque el sodio no reacciona con alcoholes",         "Porque todos los alcoholes tienen exactamente la misma acidez y solubilidad",         "Porque el resultado observado también depende del estado de la superficie del sodio, la sequedad, la temperatura y las condiciones experimentales",         "Porque la velocidad de reacción depende exclusivamente del color del alcohol"       ],       "answer": 2,       "explain": "La rapidez observable puede cambiar por el tamaño y la oxidación superficial del sodio, la presencia de agua, la temperatura, la mezcla y las propiedades físicas del alcohol. Las tendencias estructurales ayudan a interpretar los resultados, pero deben contrastarse con las condiciones reales del ensayo."     },     {       "id": "q28",       "topic": "reacciones",       "text": "¿Qué diferencia estructural explica que los alcoholes terciarios sean generalmente más reactivos en la prueba de Lucas?",       "options": [         "Poseen un grupo carbonilo adicional",         "Pueden formar con mayor facilidad un carbocatión terciario relativamente estabilizado en condiciones favorables para un mecanismo SN1",         "Contienen tres grupos hidroxilo",         "No presentan enlaces carbono-hidrógeno"       ],       "answer": 1,       "explain": "En condiciones apropiadas, los alcoholes terciarios pueden reaccionar por un mecanismo SN1. La mayor estabilización del carbocatión terciario facilita la etapa de ionización, mientras que los alcoholes primarios suelen reaccionar más lentamente en el ensayo de Lucas."     }   ],   "glossary": [     {       "term": "Alcohol",       "def": "Compuesto orgánico que contiene un grupo hidroxilo (−OH) unido a un carbono saturado; su fórmula general es R−OH."     },     {       "term": "Alcohol primario",       "def": "Alcohol cuyo carbono portador del −OH está unido como máximo a otro carbono. Puede oxidarse a aldehído y posteriormente a ácido carboxílico."     },     {       "term": "Alcohol secundario",       "def": "Alcohol cuyo carbono portador del −OH está unido a otros dos carbonos. Su oxidación suele producir una cetona."     },     {       "term": "Alcohol terciario",       "def": "Alcohol cuyo carbono portador del −OH está unido a otros tres carbonos. Suele reaccionar rápidamente con Lucas y resistir la oxidación ordinaria."     },     {       "term": "Grupo hidroxilo",       "def": "Grupo funcional −OH que caracteriza a los alcoholes y participa en sus reacciones ácido-base, sustitución y oxidación."     },     {       "term": "Alcóxido",       "def": "Especie RO⁻ o su sal, como RONa, formada al sustituirse el hidrógeno del grupo hidroxilo por un metal alcalino."     },     {       "term": "Reactivo de Lucas",       "def": "Mezcla de HCl concentrado y ZnCl₂ utilizada para comparar la rapidez de sustitución del grupo hidroxilo por cloro en distintos alcoholes."     },     {       "term": "Turbidez de Lucas",       "def": "Aspecto turbio o suspensión que suele aparecer cuando se forma un cloruro de alquilo poco soluble en el medio de reacción."     },     {       "term": "Solución sulfocrómica",       "def": "Mezcla oxidante de dicromato y ácido sulfúrico empleada para estudiar la oxidación de alcoholes; el Cr(VI) naranja puede reducirse a especies de Cr(III) verdes."     },     {       "term": "Oxidación de alcoholes",       "def": "Transformación del alcohol en productos más oxidados. Los primarios pueden producir aldehídos y ácidos carboxílicos; los secundarios, cetonas; los terciarios suelen resistir las condiciones habituales."     },     {       "term": "Esterificación de Fischer",       "def": "Reacción reversible entre un ácido carboxílico y un alcohol que produce un éster y agua, generalmente catalizada por un ácido y favorecida cinéticamente por calentamiento."     },     {       "term": "Acetato de etilo",       "def": "Éster CH₃COOCH₂CH₃ producido por la reacción entre etanol y ácido acético; presenta un olor característico."     },     {       "term": "Reactivo de Lugol",       "def": "Solución de yodo molecular y yoduro de potasio utilizada en la prueba del yodoformo como fuente de yodo en medio básico."     },     {       "term": "Prueba del yodoformo",       "def": "Ensayo que detecta estructuras capaces de producir yodoformo en condiciones apropiadas; un resultado positivo se reconoce por el precipitado amarillo de CHI₃."     },     {       "term": "Yodoformo",       "def": "Triyodometano, CHI₃, compuesto amarillo que precipita en una prueba positiva del yodoformo."     },     {       "term": "Reactivo limitante",       "def": "Reactivo que se consume primero según la estequiometría y determina la cantidad máxima teórica de producto que puede formarse."     },     {       "term": "Rendimiento teórico",       "def": "Cantidad máxima de producto calculada a partir del reactivo limitante y de la ecuación química balanceada, suponiendo conversión completa."     },     {       "term": "Rendimiento porcentual",       "def": "Relación entre el rendimiento experimental y el rendimiento teórico, multiplicada por 100: %R = (cantidad real/cantidad teórica) × 100."     },     {       "term": "Ácido de Lewis",       "def": "Especie que acepta un par de electrones. El ZnCl₂ actúa como ácido de Lewis al coordinarse con el oxígeno del alcohol en el reactivo de Lucas."     },     {       "term": "Mecanismo SN1",       "def": "Sustitución nucleofílica unimolecular en la que la salida del grupo saliente genera un carbocatión antes del ataque del nucleófilo; suele favorecerse en alcoholes terciarios bajo condiciones adecuadas."     },     {       "term": "Mecanismo SN2",       "def": "Sustitución nucleofílica concertada en la que el nucleófilo ataca mientras sale el grupo saliente; la congestión estérica suele favorecer más a sustratos primarios que terciarios."     },     {       "term": "Cromo(VI)",       "def": "Estado de oxidación del cromo presente en el dicromato de la solución sulfocrómica; es altamente tóxico y requiere manejo y disposición de residuos específicos."     },     {       "term": "Baño María",       "def": "Método de calentamiento indirecto mediante un baño de agua que permite controlar el calentamiento y evitar la exposición directa del tubo a la llama."     },     {       "term": "Residuo químico",       "def": "Material remanente de una reacción que debe identificarse, segregarse y depositarse en el recipiente institucional correspondiente según su composición y peligrosidad."     }   ],   "flashcards": [     {       "id": "f1",       "front": "Grupo funcional de los alcoholes",       "back": "Hidroxilo (−OH) unido a un carbono saturado. Fórmula general: R−OH."     },     {       "id": "f2",       "front": "Alcohol primario",       "back": "El carbono del −OH está unido como máximo a otro carbono. Oxidación: aldehído → ácido carboxílico."     },     {       "id": "f3",       "front": "Alcohol secundario",       "back": "El carbono del −OH está unido a dos carbonos. Oxidación habitual: cetona."     },     {       "id": "f4",       "front": "Alcohol terciario",       "back": "El carbono del −OH está unido a tres carbonos. Lucas: reacción rápida; oxidación ordinaria: resistencia."     },     {       "id": "f5",       "front": "Reactivo de Lucas",       "back": "HCl + ZnCl₂. Sustituye −OH por Cl; la turbidez suele indicar RCl poco soluble."     },     {       "id": "f6",       "front": "Orden de reacción con Lucas",       "back": "Generalmente: terciario > secundario > primario."     },     {       "id": "f7",       "front": "Prueba con sodio",       "back": "2ROH + 2Na → 2RONa + H₂↑. Forma alcóxido y libera hidrógeno inflamable."     },     {       "id": "f8",       "front": "Oxidación sulfocrómica",       "back": "Cr(VI) naranja → Cr(III) verde. Primario: aldehído/ácido; secundario: cetona."     },     {       "id": "f9",       "front": "Esterificación de Fischer",       "back": "Etanol + ácido acético ⇌ acetato de etilo + agua. H₂SO₄ cataliza la reacción."     },     {       "id": "f10",       "front": "Prueba del yodoformo",       "back": "Lugol + medio básico + calentamiento. Resultado positivo: precipitado amarillo de CHI₃."     },     {       "id": "f11",       "front": "¿Por qué da positivo el etanol en yodoformo?",       "back": "Puede oxidarse a acetaldehído (CH₃CHO), que participa en la reacción haloformo."     },     {       "id": "f12",       "front": "Ecuación de la esterificación",       "back": "CH₃CH₂OH + CH₃COOH ⇌ CH₃COOCH₂CH₃ + H₂O."     },     {       "id": "f13",       "front": "Cálculo de moles",       "back": "n = m/M. Si se conoce densidad: m = ρV; entonces n = ρV/M."     },     {       "id": "f14",       "front": "Rendimiento porcentual",       "back": "%R = (cantidad experimental/cantidad teórica) × 100. Usar unidades consistentes."     },     {       "id": "f15",       "front": "Seguridad con sodio metálico",       "back": "No añadir agua al sodio remanente. Avisar al docente; el tratamiento y la disposición corresponden al procedimiento autorizado."     },     {       "id": "f16",       "front": "Seguridad con solución sulfocrómica",       "back": "El Cr(VI) es altamente tóxico. Evitar contacto e inhalación y segregar los residuos según el protocolo institucional."     },     {       "id": "f17",       "front": "Función del ZnCl₂ en Lucas",       "back": "Ácido de Lewis que coordina con el oxígeno del alcohol y facilita la sustitución del grupo hidroxilo."     },     {       "id": "f18",       "front": "Diferencia entre Lucas y sulfocrómica",       "back": "Lucas: sustitución y turbidez por RCl. Sulfocrómica: oxidación y posible cambio naranja → verde."     }   ],   "structures": [],   "cases": [     {       "id": "c1",       "text": "Durante la prueba de Lucas, un alcohol produce turbidez casi inmediatamente; otro tarda varios minutos y un tercero no muestra turbidez en el tiempo de observación. ¿Cuál es la interpretación más consistente con la tendencia habitual?",       "options": [         "El más rápido es primario, el intermedio terciario y el más lento secundario",         "Los tres son terciarios porque todos contienen −OH",         "El más rápido suele ser terciario, el intermedio secundario y el más lento primario",         "La rapidez permite determinar directamente la masa molar, pero no la estructura"       ],       "answer": 2,       "feedback": "En condiciones habituales, la tendencia de reactividad con Lucas es terciario > secundario > primario. La turbidez se asocia con la formación de un cloruro de alquilo poco soluble. El tiempo observado depende también de temperatura, concentración y mezcla; no debe utilizarse como única prueba estructural."     },     {       "id": "c2",       "text": "En el ensayo con sodio, un estudiante observa burbujas en el tubo que contiene un alcohol. La reacción global es 2ROH + 2Na → 2RONa + H₂. Si reaccionan 0,020 mol de alcohol y el sodio está en exceso, ¿cuántos moles de H₂ se producen teóricamente?",       "options": [         "0,020 mol",         "0,010 mol",         "0,040 mol",         "0,005 mol"       ],       "answer": 1,       "feedback": "La ecuación indica que 2 mol de ROH producen 1 mol de H₂. Por tanto: n(H₂) = 0,020 mol × (1 mol H₂/2 mol ROH) = 0,010 mol. Es un cálculo estequiométrico teórico; no implica que deba medirse o generarse gas fuera de las condiciones de seguridad del laboratorio."     },     {       "id": "c3",       "text": "En la prueba sulfocrómica, el tubo con n-butanol presenta una coloración verde, mientras que el tubo con tert-butanol permanece principalmente naranja. ¿Cuál explicación es la más adecuada?",       "options": [         "El tert-butanol se oxidó más rápido y consumió todo el Cr(VI)",         "El n-butanol formó yodoformo y el tert-butanol formó acetato de etilo",         "Ambos alcoholes se oxidaron necesariamente al mismo producto, pero el color es irrelevante",         "El n-butanol puede oxidarse y reducir Cr(VI) a Cr(III); el tert-butanol suele resistir estas condiciones"       ],       "answer": 3,       "feedback": "El n-butanol es primario y puede oxidarse, reduciendo el Cr(VI) naranja a especies de Cr(III) verdes. El tert-butanol es terciario y suele resistir la oxidación ordinaria porque el carbono que porta el −OH no tiene un hidrógeno que pueda eliminarse para formar directamente un carbonilo sin ruptura de enlaces carbono-carbono. La observación es cualitativa."     },     {       "id": "c4",       "text": "Un estudiante mezcla etanol, ácido acético y H₂SO₄ concentrado y calienta durante 2 minutos en baño María. Tras enfriar, vierte la mezcla en agua y percibe un olor característico. ¿Qué producto busca obtener?",       "options": [         "Acetato de etilo",         "2-butanona",         "Cloruro de butilo",         "Yodoformo"       ],       "answer": 0,       "feedback": "La esterificación de Fischer entre etanol y ácido acético produce acetato de etilo y agua. El H₂SO₄ actúa como catalizador ácido. No se debe inhalar directamente el producto; cualquier evaluación del olor debe ajustarse a las instrucciones de seguridad."     },     {       "id": "c5",       "text": "En la prueba del yodoformo, el estudiante añade etanol al 95 %, agua y Lugol; agrega KOH al 20 % hasta que desaparece la coloración del yodo, calienta 3 minutos y, tras enfriar, añade agua. Aparece un precipitado amarillo. ¿Cuál es la conclusión?",       "options": [         "Se ha formado necesariamente una cetona de cuatro carbonos",         "La reacción demuestra que el etanol es un alcohol terciario",         "Se ha obtenido una prueba positiva compatible con la formación de CHI₃",         "El precipitado es Cr(III) procedente de la solución sulfocrómica"       ],       "answer": 2,       "feedback": "El precipitado amarillo corresponde al resultado característico del yodoformo, CHI₃. El etanol puede dar positivo tras oxidarse a acetaldehído en las condiciones de la reacción haloformo. El color por sí solo debe interpretarse en el contexto del procedimiento y los reactivos utilizados."     },     {       "id": "c6",       "text": "Para estimar el rendimiento de acetato de etilo, se parte de 1,00 mL de etanol puro, con densidad 0,789 g/mL y masa molar 46,07 g/mol. Si el ácido acético está en exceso, ¿cuál es la cantidad teórica aproximada de éster según una relación molar 1:1?",       "options": [         "0,789 mol",         "0,0171 mol",         "0,0342 mol",         "0,00100 mol"       ],       "answer": 1,       "feedback": "La masa de etanol es 0,789 g. Los moles son 0,789 g ÷ 46,07 g/mol ≈ 0,0171 mol. La reacción tiene una relación molar etanol:éster de 1:1, así que la cantidad teórica es aproximadamente 0,0171 mol de acetato de etilo, suponiendo que el etanol sea el reactivo limitante y que la conversión pudiera ser completa."     },     {       "id": "c7",       "text": "Al finalizar el ensayo con sodio, queda una pieza metálica sin reaccionar en un tubo. Un compañero propone añadir agua para eliminarla rápidamente. ¿Qué debe hacerse?",       "options": [         "Añadir agua lentamente mientras se sostiene el tubo con la mano",         "Agregar ácido sulfúrico concentrado y calentar",         "Cerrar herméticamente el tubo y desecharlo en residuos ordinarios",         "No añadir agua ni improvisar un tratamiento; informar al docente y seguir el procedimiento institucional autorizado"       ],       "answer": 3,       "feedback": "El sodio puede reaccionar violentamente con agua y liberar hidrógeno inflamable. La neutralización o destrucción del sodio remanente debe realizarla personal autorizado bajo el procedimiento de seguridad establecido. No debe desecharse en el lavamanos ni en residuos ordinarios."     },     {       "id": "c8",       "text": "Un grupo observa que el reactivo de Lucas se enturbia en un tubo, mientras que otro permanece claro durante los 5 minutos indicados. ¿Qué debe registrar para una comparación experimental válida?",       "options": [         "Identidad de la muestra, tiempo de aparición de turbidez, temperatura, aspecto inicial y final, y condiciones del procedimiento",         "Únicamente el color de la etiqueta de cada tubo",         "Solo la masa molar teórica de los alcoholes",         "El olor determinado mediante inhalación directa"       ],       "answer": 0,       "feedback": "La comparación requiere registrar qué alcohol se utilizó, cuánto tardó en aparecer la turbidez, las condiciones térmicas y las observaciones iniciales y finales. Deben mantenerse constantes las cantidades de reactivo y muestra. No se debe inhalar directamente el contenido de los tubos."     },     {       "id": "c9",       "text": "Un alcohol secundario se somete a oxidación con un oxidante adecuado y produce una cetona. ¿Qué cambio funcional explica el resultado?",       "options": [         "El grupo hidroxilo se transforma en un grupo amino",         "Se forma un enlace éster sin participación de otro reactivo",         "El carbono que porta el −OH se transforma en un carbono de grupo carbonilo",         "El grupo hidroxilo se convierte en un halógeno"       ],       "answer": 2,       "feedback": "La oxidación de un alcohol secundario convierte el carbono que portaba el grupo hidroxilo en un carbono carbonílico, formando una cetona. En el sec-butanol, el producto esperado es la 2-butanona bajo condiciones de oxidación apropiadas."     },     {       "id": "c10",       "text": "Se obtiene una masa experimental de 1,00 g de producto y se calcula una masa teórica de 1,50 g. ¿Cuál es el rendimiento porcentual?",       "options": [         "150 %",         "66,7 %",         "50,0 %",         "0,667 %"       ],       "answer": 1,       "feedback": "Se utiliza %R = (masa experimental/masa teórica) × 100. Por tanto: (1,00 g/1,50 g) × 100 = 66,7 %. El resultado compara la cantidad aislada con la máxima calculada y no demuestra por sí solo la pureza del producto."     },     {       "id": "c11",       "text": "Durante la esterificación se añaden unas gotas de H₂SO₄ concentrado. ¿Cuál es la función principal de este reactivo en la reacción?",       "options": [         "Convertir el etanol en sodio metálico",         "Aportar el grupo yodo para formar CHI₃",         "Actuar como catalizador ácido y facilitar la activación del grupo carbonilo del ácido carboxílico",         "Oxidar directamente el acetato de etilo a Cr(III)"       ],       "answer": 2,       "feedback": "El ácido sulfúrico protona el grupo carbonilo del ácido carboxílico y facilita el ataque nucleofílico del alcohol en el mecanismo de esterificación. No es el reactivo que aporta el grupo etilo ni el que forma el precipitado de yodoformo."     },     {       "id": "c12",       "text": "Al clasificar los residuos de la práctica, ¿qué principio debe seguirse para decidir el recipiente de disposición?",       "options": [         "Separar según la composición química y la peligrosidad, siguiendo el etiquetado y el protocolo institucional",         "Mezclar todos los residuos líquidos para reducir el número de recipientes",         "Verter al lavamanos todo residuo que no tenga color intenso",         "Desechar todos los precipitados en residuos ordinarios"       ],       "answer": 0,       "feedback": "Los residuos de sodio, reactivo de Lucas, solución sulfocrómica, esterificación y yodoformo pueden presentar riesgos diferentes. Deben segregarse según su composición, peligrosidad, etiquetado y procedimiento institucional; no se deben mezclar ni desechar en el desagüe sin autorización."     }   ],   "interactives": [     {       "id": "i1",       "type": "dragdrop",       "title": "Relaciona la clasificación con la oxidación habitual",       "terms": [         "Alcohol primario",         "Alcohol secundario",         "Alcohol terciario"       ],       "targets": [         "Aldehído y, si continúa la oxidación, ácido carboxílico",         "Cetona",         "Suele resistir la oxidación ordinaria"       ],       "answerMap": {         "Alcohol primario": "Aldehído y, si continúa la oxidación, ácido carboxílico",         "Alcohol secundario": "Cetona",         "Alcohol terciario": "Suele resistir la oxidación ordinaria"       }     },     {       "id": "i2",       "type": "dragdrop",       "title": "Relaciona cada prueba con su evidencia experimental",       "terms": [         "Prueba con sodio",         "Reactivo de Lucas",         "Oxidación sulfocrómica",         "Esterificación de Fischer",         "Prueba del yodoformo"       ],       "targets": [         "Liberación de H₂ y formación de alcóxido",         "Turbidez por formación de cloruro de alquilo poco soluble",         "Posible cambio naranja a verde por reducción de Cr(VI)",         "Formación de acetato de etilo y agua",         "Precipitado amarillo de CHI₃"       ],       "answerMap": {         "Prueba con sodio": "Liberación de H₂ y formación de alcóxido",         "Reactivo de Lucas": "Turbidez por formación de cloruro de alquilo poco soluble",         "Oxidación sulfocrómica": "Posible cambio naranja a verde por reducción de Cr(VI)",         "Esterificación de Fischer": "Formación de acetato de etilo y agua",         "Prueba del yodoformo": "Precipitado amarillo de CHI₃"       }     },     {       "id": "i3",       "type": "complete",       "title": "Completa la ecuación de reacción con sodio",       "prompt": "2ROH + 2Na → 2RONa + \_\_\_\_",       "answer": "H2",       "explanation": "Se forma hidrógeno molecular. Dos moles de alcohol reaccionan con dos moles de sodio para producir dos moles de alcóxido y un mol de H₂."     },     {       "id": "i4",       "type": "complete",       "title": "Completa el orden de reactividad de Lucas",       "prompt": "La tendencia general de reactividad con Lucas es: alcohol terciario > alcohol \_\_\_\_ > alcohol primario.",       "answer": "secundario",       "explanation": "Los alcoholes terciarios reaccionan generalmente más rápido que los secundarios y estos más rápido que los primarios en las condiciones habituales del ensayo."     },     {       "id": "i5",       "type": "complete",       "title": "Completa la ecuación de esterificación",       "prompt": "CH3CH2OH + CH3COOH ⇌ CH3COOCH2CH3 + \_\_\_\_",       "answer": "H2O",       "explanation": "La reacción entre etanol y ácido acético produce acetato de etilo y agua. El ácido sulfúrico actúa como catalizador."     },     {       "id": "i6",       "type": "complete",       "title": "Identifica el precipitado de la prueba del yodoformo",       "prompt": "La aparición de un precipitado amarillo de \_\_\_\_ indica un resultado positivo de la prueba del yodoformo.",       "answer": "CHI3",       "explanation": "El CHI₃ es triyodometano o yodoformo. Su precipitación amarilla es la observación característica del ensayo."     },     {       "id": "i7",       "type": "complete",       "title": "Completa el cálculo de cantidad de sustancia",       "prompt": "Si la masa se obtiene mediante m = ρV, la cantidad de sustancia se calcula con n = \_\_\_\_.",       "answer": "m/M",       "explanation": "La cantidad de sustancia en moles se calcula dividiendo la masa entre la masa molar. Si se conocen densidad y volumen, se sustituye m por ρV: n = ρV/M."     },     {       "id": "i8",       "type": "complete",       "title": "Calcula la cantidad de hidrógeno producida",       "prompt": "Según 2ROH + 2Na → 2RONa + H2, 0,040 mol de ROH pueden producir teóricamente \_\_\_\_ mol de H2 si el sodio está en exceso.",       "answer": "0.020",       "explanation": "La relación estequiométrica es 2 mol de ROH por 1 mol de H₂. Entonces, 0,040 mol de ROH × (1 mol H₂/2 mol ROH) = 0,020 mol de H₂."     },     {       "id": "i9",       "type": "complete",       "title": "Completa la interpretación de la solución sulfocrómica",       "prompt": "El cambio de naranja a verde puede indicar la reducción de Cr(VI) a Cr(\_\_\_\_).",       "answer": "III",       "explanation": "La solución con Cr(VI) suele ser naranja; la reducción produce especies de Cr(III), que pueden presentar color verde. El Cr(VI) es altamente tóxico."     },     {       "id": "i10",       "type": "complete",       "title": "Completa la fórmula del rendimiento porcentual",       "prompt": "%R = (cantidad experimental / cantidad teórica) × \_\_\_\_",       "answer": "100",       "explanation": "El rendimiento porcentual expresa como porcentaje la cantidad experimental respecto de la cantidad teórica: %R = (real/teórica) × 100."     },     {       "id": "i11",       "type": "dragdrop",       "title": "Relaciona la muestra con el resultado esperado de oxidación",       "terms": [         "n-Butanol",         "sec-Butanol",         "tert-Butanol"       ],       "targets": [         "Alcohol primario: puede producir butanal y posteriormente ácido butanoico",         "Alcohol secundario: puede producir 2-butanona",         "Alcohol terciario: suele resistir las condiciones ordinarias de oxidación"       ],       "answerMap": {         "n-Butanol": "Alcohol primario: puede producir butanal y posteriormente ácido butanoico",         "sec-Butanol": "Alcohol secundario: puede producir 2-butanona",         "tert-Butanol": "Alcohol terciario: suele resistir las condiciones ordinarias de oxidación"       }     },     {       "id": "i12",       "type": "complete",       "title": "Completa el criterio de seguridad para el sodio",       "prompt": "El sodio metálico no debe entrar en contacto con \_\_\_\_ porque puede reaccionar violentamente y liberar hidrógeno.",       "answer": "agua",       "explanation": "El sodio reacciona vigorosamente con agua. Si queda sodio sin reaccionar, no debe improvisarse un tratamiento; se debe informar al docente y seguir el procedimiento institucional autorizado."     }   ],   "maps": {     "fundamentos": "Propiedades químicas de los alcoholes\n├─ Grupo funcional\n│  ├─ Hidroxilo (−OH)\n│  ├─ Fórmula general R−OH\n│  └─ Ácidos y bases débiles\n├─ Clasificación estructural\n│  ├─ Primario → carbono del −OH unido como máximo a otro carbono\n│  ├─ Secundario → carbono del −OH unido a dos carbonos\n│  └─ Terciario → carbono del −OH unido a tres carbonos\n└─ Tendencias químicas\n   ├─ Lucas: terciario > secundario > primario\n   ├─ Oxidación de primarios → aldehído → ácido carboxílico\n   ├─ Oxidación de secundarios → cetona\n   └─ Terciarios → resistencia a la oxidación ordinaria",     "reacciones": "Reacciones químicas de los alcoholes\n├─ Reacción con sodio\n│  ├─ 2ROH + 2Na → 2RONa + H₂\n│  ├─ Producto: alcóxido de sodio\n│  ├─ Evidencia: burbujeo por H₂\n│  └─ Riesgo: reacción exotérmica e hidrógeno inflamable\n├─ Reactivo de Lucas\n│  ├─ HCl + ZnCl₂\n│  ├─ ROH + HCl → RCl + H₂O\n│  ├─ Evidencia: turbidez por RCl poco soluble\n│  └─ Rapidez: terciario > secundario > primario\n└─ Oxidación sulfocrómica\n   ├─ Dicromato + H₂SO₄\n   ├─ Cr(VI) naranja → Cr(III) verde\n   ├─ Primario → aldehído/ácido\n   ├─ Secundario → cetona\n   └─ Terciario → suele resistir\n      └─ Riesgo: Cr(VI) altamente tóxico",     "etanol": "Reacciones características del etanol\n├─ Esterificación de Fischer\n│  ├─ Etanol + ácido acético\n│  ├─ Catalizador: H₂SO₄ concentrado\n│  ├─ Calentamiento: 2 min en baño María\n│  ├─ Productos: acetato de etilo + agua\n│  └─ Enfriar y verter en ≈3 mL de agua\n├─ Prueba del yodoformo\n│  ├─ 1 mL de etanol al 95 %\n│  ├─ 1 mL de agua + 2,5 mL de Lugol\n│  ├─ KOH al 20 % hasta desaparecer el color del Lugol\n│  ├─ Calentar 3 min en baño María\n│  ├─ Enfriar y añadir 5 mL de agua\n│  └─ Positivo: precipitado amarillo de CHI₃\n└─ Interpretación y seguridad\n   ├─ Etanol → acetaldehído → reacción haloformo\n   ├─ No inhalar directamente los vapores\n   ├─ No añadir agua a sodio remanente\n   └─ Segregar residuos según el protocolo institucional"   } };
+
+                    /* --------------------------
+                    Utilidades y renderizado
+                    -------------------------- */
+                    function ensureDbShape() {
+                    DB.quizTopics = Array.isArray(DB.quizTopics) ? DB.quizTopics: [];
+                    DB.questions = Array.isArray(DB.questions) ? DB.questions: [];
+                    DB.glossary = Array.isArray(DB.glossary) ? DB.glossary: [];
+                    DB.flashcards = Array.isArray(DB.flashcards) ? DB.flashcards: [];
+                    DB.structures = Array.isArray(DB.structures) ? DB.structures: [];
+                    DB.cases = Array.isArray(DB.cases) ? DB.cases: [];
+                    DB.interactives = Array.isArray(DB.interactives) ? DB.interactives: [];
+                    DB.maps = DB.maps && typeof DB.maps === 'object' ? DB.maps: {};
+                    }
+
+                    function escapeHtml(s) {
+                    if (!s) return ''; return String(s).replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;');
+                        }
+
+                        /* render glossary */
+                        function renderGloss() {
+                        const list = document.getElementById('glossList');
+                        list.innerHTML = '';
+
+                        const glossary = Array.isArray(DB.glossary) ? DB.glossary: [];
+                        const query = normalizeText(document.getElementById('glossSearch').value || '');
+
+                        glossary
+                        .filter(item => {
+                        const term = normalizeText(item.term);
+                        const def = normalizeText(item.def);
+                        return !query || term.includes(query) || def.includes(query);
+                        })
+                        .forEach((g, idx) => {
+                        const itemId = g.id || `gloss-${idx}`;
+
+                        const div = document.createElement('div');
+                        div.className = 'relative p-2 border-b';
+
+                        div.innerHTML = `
+                        <strong>${escapeHtml(g.term)}</strong>
+                        <p class="text-xs text-gray-700 pr-14">
+                            ${escapeHtml(g.def)}
+                        </p>
+
+                        <button data-i="${idx}" class="edit-gloss text-blue-600 text-xs mt-1">
+                            Editar
+                        </button>
+
+                        <div class="absolute bottom-1 right-1 flex gap-1">
+                            <button data-section="gloss" data-id="${itemId}" data-correct="true" class="score-btn text-xs">✅</button>
+                            <button data-section="gloss" data-id="${itemId}" data-correct="false" class="score-btn text-xs">❌</button>
+                        </div>
+                        `;
+
+                        list.appendChild(div);
+                        });
+
+                        list.querySelectorAll('.edit-gloss').forEach(btn => {
+                        btn.addEventListener('click', () => {
+                        const i = parseInt(btn.dataset.i);
+                        document.getElementById('termInput').value = DB.glossary[i].term || '';
+                        document.getElementById('defInput').value = DB.glossary[i].def || '';
+                        DB.glossary.splice(i, 1);
+                        renderGloss();
+                        saveToLocal();
+                        updateDashboard();
+                        });
+                        });
+
+                        list.querySelectorAll('.score-btn').forEach(btn => {
+                        btn.addEventListener('click', () => {
+                        markItem(
+                        btn.dataset.section,
+                        btn.dataset.id,
+                        btn.dataset.correct === 'true'
+                        );
+                        });
+                        });
+
+                        document.getElementById('glossJSON').value = JSON.stringify(glossary, null, 2);
+                        }
+                        document.getElementById('glossSearch').addEventListener('input', renderGloss);
+
+                        /* render flashcards */
+                        function renderFlashcards() {
+                        const cont = document.getElementById('flashContainer');
+                        cont.innerHTML = '';
+
+                        const flashcards = Array.isArray(DB.flashcards) ? DB.flashcards: [];
+
+                        flashcards.forEach((f, i) => {
+                        const itemId = f.id || `flash-${i}`;
+
+                        const card = document.createElement('div');
+                        card.className = 'card';
+                        card.style.width = '240px';
+
+                        card.innerHTML = `
+                        <div class="card-inner" data-index="${i}">
+                            <div class="card-front">
+                                ${escapeHtml(f.front)}
+                            </div>
+
+                            <div class="card-back relative">
+                                <span class="pr-14">${escapeHtml(f.back)}</span>
+
+                                <div class="absolute bottom-1 right-1 flex gap-1">
+                                    <button data-section="flash" data-id="${itemId}" data-correct="true" class="score-btn text-xs">✅</button>
+                                    <button data-section="flash" data-id="${itemId}" data-correct="false" class="score-btn text-xs">❌</button>
+                                </div>
+                            </div>
+                        </div>
+                        `;
+
+                        card.querySelector('.card-inner').addEventListener('click', e => {
+                        const inner = e.currentTarget;
+                        inner.style.transform = inner.style.transform ? '': 'rotateY(180deg)';
+                        });
+
+                        card.querySelectorAll('.score-btn').forEach(btn => {
+                        btn.addEventListener('click', e => {
+                        e.stopPropagation();
+
+                        markItem(
+                        btn.dataset.section,
+                        btn.dataset.id,
+                        btn.dataset.correct === 'true'
+                        );
+                        });
+                        });
+
+                        cont.appendChild(card);
+                        });
+
+                        document.getElementById('flashJSON').value = JSON.stringify(flashcards, null, 2);
+                        }
+
+                        /* render structures */
+                        function renderStructures() {
+                        const area = document.getElementById('structuresArea'); area.innerHTML = '';
+                        const structures = Array.isArray(DB.structures) ? DB.structures: [];
+                        structures.forEach((s, idx)=> {
+                        const options = Array.isArray(s.options) ? s.options: [];
+                        const wrap = document.createElement('div'); wrap.className = 'p-3 border rounded';
+                        wrap.innerHTML = `<div>
+                            <h4 class="font-semibold">${idx+1}. ${escapeHtml(s.title)}</h4><div class="text-sm mt-1">
+                                Imagen: <a class="link-img" target="_blank" href="${s.img}">${s.img}</a>
+                            </div>
+                            <div class="mt-2" id="opts-${idx}"></div>
+                        </div>
+                        `;
+                        area.appendChild(wrap);
+                        const optsDiv = wrap.querySelector(`#opts-${idx}`);
+                        options.forEach((o, i)=> {
+                        const radio = document.createElement('label'); radio.className = 'mr-3 block'; radio.innerHTML = `<input type="radio" name="struct_${idx}" value="${i}"> ${escapeHtml(o)}`; optsDiv.appendChild(radio);
+                        });
+                        const btn = document.createElement('button'); btn.className = 'mt-2 px-2 py-1 bg-amber-500 text-white rounded'; btn.textContent = 'Verificar';
+                        btn.addEventListener('click', () => {
+                        const sel = wrap.querySelector(`input[name="struct_${idx}"]:checked`);
+
+                        if (!sel) {
+                        alert('Selecciona opción');
+                        return;
+                        }
+
+                        const itemId = s.id || `structure-${idx}`;
+
+                        if (parseInt(sel.value) === s.answer) {
+                        alert('✅ Correcto\n' + (s.explain || ''));
+                        markItem('structures', itemId, true);
+                        } else {
+                        alert('❌ Incorrecto\n' + (s.explain || ''));
+                        markItem('structures', itemId, false);
+                        }
+                        });
+                        wrap.appendChild(btn);
+                        });
+                        document.getElementById('structuresJSON').value = JSON.stringify(structures, null, 2);
+                        }
+
+                        /* render cases */
+                        function renderCases() {
+                        const area = document.getElementById('casesArea'); area.innerHTML = '';
+                        const casesList = Array.isArray(DB.cases) ? DB.cases: [];
+                        casesList.forEach((c,
+                        idx)=> {
+                        const options = Array.isArray(c.options) ? c.options: [];
+                        const wrap = document.createElement('div'); wrap.className = 'p-3 border rounded mb-3';
+                        wrap.innerHTML = `<div>
+                            <h4 class="font-semibold">Caso ${idx+1}</h4><p class="mt-1">
+                                ${escapeHtml(c.text)}
+                            </p>
+                            <div class="mt-2" id="caseOpts${idx}"></div>
+                        </div>
+                        `;
+                        area.appendChild(wrap);
+                        const optsDiv = wrap.querySelector(`#caseOpts${idx}`);
+                        options.forEach((o, i)=> {
+                        const label = document.createElement('label'); label.className = 'block'; label.innerHTML = `<input type="radio" name="case_${idx}" value="${i}"> ${escapeHtml(o)}`; optsDiv.appendChild(label);
+                        });
+                        const btn = document.createElement('button'); btn.className = 'mt-2 px-2 py-1 bg-indigo-600 text-white rounded'; btn.textContent = 'Responder';
+                        btn.addEventListener('click',
+                        () => {
+                        const sel = wrap.querySelector(`input[name="case_${idx}"]:checked`);
+
+                        if (!sel) {
+                        alert('Selecciona opción');
+                        return;
+                        }
+
+                        const itemId = c.id || `case-${idx}`;
+
+                        if (parseInt(sel.value) === c.answer) {
+                        alert('✅ Correcto\n' + (c.feedback || ''));
+                        markItem('cases', itemId, true);
+                        } else {
+                        alert('❌ Incorrecto\n' + (c.feedback || ''));
+                        markItem('cases', itemId, false);
+                        }
+                        });
+                        wrap.appendChild(btn);
+                        });
+                        document.getElementById('casesJSON').value = JSON.stringify(casesList, null, 2);
+                        }
+
+                        /* render interactives with correct drag/drop handling */
+                        function renderInteratives() {
+                        const area = document.getElementById('interactiveArea'); area.innerHTML = '';
+                        (Array.isArray(DB.interactives) ? DB.interactives: []).forEach((it,
+                        idx)=> {
+                        const block = document.createElement('div'); block.className = 'p-3 border rounded';
+                        block.innerHTML = `<h4 class="font-semibold">${idx+1}. ${escapeHtml(it.title || it.id)}</h4>`;
+                        if (it.type === 'dragdrop') {
+                        const terms = Array.isArray(it.terms) ? it.terms: [];
+                        const targets = Array.isArray(it.targets) ? it.targets: [];
+                        const termsDiv = document.createElement('div'); termsDiv.className = 'mt-2 flex gap-2 flex-wrap';
+                        terms.forEach((t, i)=> {
+                        const d = document.createElement('div'); d.className = 'draggable'; d.id = `term-${idx}-${i}`; d.draggable = true; d.textContent = t;
+                        d.addEventListener('dragstart', e => {
+                        e.dataTransfer.setData('text/plain', d.id); e.dataTransfer.effectAllowed = 'move';
+                        });
+                        termsDiv.appendChild(d);
+                        });
+                        const targetsDiv = document.createElement('div'); targetsDiv.className = 'mt-3 grid grid-cols-1 gap-2';
+                        targets.forEach((tg, i)=> {
+                        const dz = document.createElement('div'); dz.className = 'dropzone'; dz.id = `target-${idx}-${i}`;
+                        dz.dataset.target = tg;
+                        const label = document.createElement('span');
+                        label.className = 'dropzone-label';
+                        label.textContent = tg;
+                        dz.appendChild(label);
+                        dz.addEventListener('dragover', e => {
+                        e.preventDefault(); e.dataTransfer.dropEffect = 'move'; dz.style.backgroundColor = '#f8fafc';
+                        });
+                        dz.addEventListener('dragleave', e => {
+                        dz.style.backgroundColor = '';
+                        });
+                        dz.addEventListener('drop', e => {
+                        e.preventDefault();
+                        dz.style.backgroundColor = '';
+                        const id = e.dataTransfer.getData('text/plain');
+                        const el = document.getElementById(id);
+                        if (!el) return;
+                        // append (this move automatically removes from previous parent)
+                        dz.appendChild(el);
+                        // compute trimmed texts
+                        const childText = el.textContent.trim();
+                        const expected = normalizeText((it.answerMap && it.answerMap[childText]) ? it.answerMap[childText]: '');
+                        const zoneText = normalizeText(dz.dataset.target || label.textContent || '');
+                        if (expected && expected === zoneText) {
+                        dz.style.borderColor = '#16a34a';
+                        dz.style.backgroundColor = '#ecfdf5';
+                        dz.dataset.correct = 'true';
+                        } else {
+                        dz.style.borderColor = '#dc2626';
+                        dz.style.backgroundColor = '#fff1f2';
+                        dz.dataset.correct = 'false';
+                        }
+                        // For other zones: if empty reset; if they have children, re-evaluate them
+                        targets.forEach((ot, j)=> {
+                        const otherDz = document.getElementById(`target-${idx}-${j}`);
+                        if (!otherDz) return;
+                        if (otherDz === dz) return;
+                        // remove any duplicate of the moved element (safety)
+                        Array.from(otherDz.querySelectorAll('.draggable')).forEach(ch => {
+                        if (ch.id === el.id) otherDz.removeChild(ch);
+                        });
+                        if (otherDz.querySelectorAll('.draggable').length === 0) {
+                        otherDz.style.borderColor = '#94a3b8'; otherDz.style.backgroundColor = ''; delete otherDz.dataset.correct;
+                        } else {
+                        const rem = otherDz.querySelector('.draggable');
+                        if (rem) {
+                        const remText = rem.textContent.trim();
+                        const remExp = normalizeText((it.answerMap && it.answerMap[remText]) ? it.answerMap[remText]: '');
+                        const otherLabel = otherDz.querySelector('.dropzone-label');
+                        const otherZoneText = normalizeText(otherDz.dataset.target || (otherLabel ? otherLabel.textContent: ''));
+                        if (remExp && remExp === otherZoneText) {
+                        otherDz.style.borderColor = '#16a34a'; otherDz.style.backgroundColor = '#ecfdf5'; otherDz.dataset.correct = 'true';
+                        } else {
+                        otherDz.style.borderColor = '#dc2626'; otherDz.style.backgroundColor = '#fff1f2'; otherDz.dataset.correct = 'false';
+                        }
+                        }
+                        }
+                        });
+                        });
+                        targetsDiv.appendChild(dz);
+                        });
+                        block.appendChild(termsDiv);
+                        block.appendChild(targetsDiv);
+
+                        const checkBtn = document.createElement('button');
+                        checkBtn.className = 'mt-2 px-2 py-1 bg-amber-500 text-white rounded';
+                        checkBtn.textContent = 'Verificar actividad';
+
+                        checkBtn.addEventListener('click', () => {
+                        const itemId = it.id || `interactive-${idx}`;
+                        const zones = block.querySelectorAll('.dropzone');
+                        const allCorrect = Array.from(zones).length > 0 &&
+                        Array.from(zones).every(zone => zone.dataset.correct === 'true');
+
+                        if (allCorrect) {
+                        alert('✅ Actividad correcta');
+                        markItem('interactive', itemId, true);
+                        } else {
+                        alert('❌ Revisa la actividad.');
+                        markItem('interactive', itemId, false);
+                        }
+                        });
+
+                        block.appendChild(checkBtn);
+                        } else if (it.type === 'complete') {
+                        const q = document.createElement('div'); q.innerHTML = `<div class="mt-2">
+                            ${escapeHtml(it.prompt || '')}
+                        </div>
+                        <input class="mt-2 border rounded p-1" id="fill-${idx}">`;
+                        const btn = document.createElement('button'); btn.className = 'mt-2 px-2 py-1 bg-amber-500 text-white rounded'; btn.textContent = 'Verificar';
+                        btn.addEventListener('click', () => {
+                        const user = document.getElementById(`fill-${idx}`).value.trim();
+                        const itemId = it.id || `interactive-${idx}`;
+
+                        if (normalizeText(user) === normalizeText(it.answer || '')) {
+                        alert('✅ Correcto');
+                        markItem('interactive', itemId, true);
+                        } else {
+                        alert('❌ Incorrecto.');
+                        markItem('interactive', itemId, false);
+                        }
+                        });
+                        block.appendChild(q); block.appendChild(btn);
+                        }
+                        area.appendChild(block);
+                        });
+                        document.getElementById('interJSON').value = JSON.stringify(DB.interactives, null, 2);
+                        }
+
+                        /* render maps */
+                        function renderMaps() {
+                        const disp = document.getElementById('mapsDisplay');
+                        disp.innerHTML = '';
+
+                        Object.entries(DB.maps || {}).forEach(([k,
+                        v]) => {
+                        const itemId = `map-${k}`;
+
+                        const div = document.createElement('div');
+                        div.className = 'relative bg-gray-50 p-3 rounded';
+
+                        div.innerHTML = `
+                        <h3 class="font-semibold capitalize">${escapeHtml(k)}</h3>
+                        <pre class="map pr-14">${escapeHtml(v)}</pre>
+
+                        <div class="absolute bottom-1 right-1 flex gap-1">
+                            <button data-section="maps" data-id="${itemId}" data-correct="true" class="score-btn text-xs">✅</button>
+                            <button data-section="maps" data-id="${itemId}" data-correct="false" class="score-btn text-xs">❌</button>
+                        </div>
+                        `;
+
+                        div.querySelectorAll('.score-btn').forEach(btn => {
+                        btn.addEventListener('click', () => {
+                        markItem(
+                        btn.dataset.section,
+                        btn.dataset.id,
+                        btn.dataset.correct === 'true'
+                        );
+                        });
+                        });
+
+                        disp.appendChild(div);
+                        });
+
+                        document.getElementById('mapsJSON').value = JSON.stringify(DB.maps || {}, null, 2);
+                        }
+
+                        /* Save/load DB to localStorage */
+                        function saveToLocal() {
+                        localStorage.setItem('DB_biocel', JSON.stringify(DB));
+                        }
+                        function loadFromLocal() {
+                        const raw = localStorage.getItem('DB_biocel');
+                        if (raw) {
+                        try {
+                        DB = JSON.parse(raw);
+                        } catch(e) {
+                        console.error(e);
+                        }
+                        }
+                        ensureDbShape();
+                        renderAll();
+                        }
+                        function renderAll() {
+                        ensureDbShape();
+                        renderQuizTopics();
+                        renderGloss();
+                        renderFlashcards();
+                        renderStructures();
+                        renderCases();
+                        renderInteratives();
+                        renderMaps();
+
+                        document.getElementById('questionsJSON').value = JSON.stringify(DB.questions || [], null, 2);
+                        document.getElementById('quizTopicsJSON').value = JSON.stringify(DB.quizTopics || [], null, 2);
+
+                        updateDashboard();
+                        }
+                        /* Score and dashboard */
+                        const POINTS_PER_ITEM = 10;
+
+                        function getProgress() {
+                        return JSON.parse(localStorage.getItem('progressBySection') || '{}');
+                        }
+
+                        function saveProgress(progress) {
+                        localStorage.setItem('progressBySection', JSON.stringify(progress));
+                        }
+
+                        function markItem(section, id, isCorrect) {
+                        const progress = getProgress();
+
+                        if (!progress[section]) {
+                        progress[section] = {};
+                        }
+
+                        progress[section][id] = isCorrect ? 'correct': 'incorrect';
+
+                        saveProgress(progress);
+                        updateDashboard();
+                        }
+
+                        function countCorrect(progress, section) {
+                        if (!progress[section]) return 0;
+
+                        return Object.values(progress[section]).filter(value => value === 'correct').length;
+                        }
+
+                        function getSectionTotals() {
+                        return {
+                        quiz: Array.isArray(DB.questions) ? DB.questions.length: 0,
+                        gloss: Array.isArray(DB.glossary) ? DB.glossary.length: 0,
+                        flash: Array.isArray(DB.flashcards) ? DB.flashcards.length: 0,
+                        structures: Array.isArray(DB.structures) ? DB.structures.length: 0,
+                        cases: Array.isArray(DB.cases) ? DB.cases.length: 0,
+                        interactive: Array.isArray(DB.interactives) ? DB.interactives.length: 0,
+                        maps: DB.maps && typeof DB.maps === 'object' ? Object.keys(DB.maps).length: 0
+                        };
+                        }
+
+                        function formatProgress(correct, total) {
+                        const obtained = correct * POINTS_PER_ITEM;
+                        const max = total * POINTS_PER_ITEM;
+                        const percent = max > 0 ? Math.round((obtained / max) * 100): 0;
+
+                        return {
+                        obtained,
+                        max,
+                        percent,
+                        text: `${obtained} / ${max} - ${percent}%`
+                        };
+                        }
+
+                        function updateDashboard() {
+                        const progress = getProgress();
+                        const totals = getSectionTotals();
+
+                        const quiz = formatProgress(countCorrect(progress, 'quiz'), totals.quiz);
+                        const gloss = formatProgress(countCorrect(progress, 'gloss'), totals.gloss);
+                        const flash = formatProgress(countCorrect(progress, 'flash'), totals.flash);
+                        const structures = formatProgress(countCorrect(progress, 'structures'), totals.structures);
+                        const cases = formatProgress(countCorrect(progress, 'cases'), totals.cases);
+                        const interactive = formatProgress(countCorrect(progress, 'interactive'), totals.interactive);
+                        const maps = formatProgress(countCorrect(progress, 'maps'), totals.maps);
+
+                        const obtainedTotal =
+                        quiz.obtained +
+                        gloss.obtained +
+                        flash.obtained +
+                        structures.obtained +
+                        cases.obtained +
+                        interactive.obtained +
+                        maps.obtained;
+
+                        const maxTotal =
+                        quiz.max +
+                        gloss.max +
+                        flash.max +
+                        structures.max +
+                        cases.max +
+                        interactive.max +
+                        maps.max;
+
+                        const totalPercent = maxTotal > 0
+                        ? Math.round((obtainedTotal / maxTotal) * 100): 0;
+
+                        document.getElementById('score').textContent = obtainedTotal;
+                        document.getElementById('maxScore').textContent = maxTotal;
+                        document.getElementById('scorePercent').textContent = `${totalPercent}%`;
+
+                        document.getElementById('progressQuiz').textContent = quiz.text;
+                        document.getElementById('progressGloss').textContent = gloss.text;
+                        document.getElementById('progressFlash').textContent = flash.text;
+                        document.getElementById('progressStructures').textContent = structures.text;
+                        document.getElementById('progressCases').textContent = cases.text;
+                        document.getElementById('progressInteractive').textContent = interactive.text;
+                        document.getElementById('progressMaps').textContent = maps.text;
+                        }
+
+                        loadFromLocal();
+
+                        /* Navigation wiring */
+                        const sections = document.querySelectorAll("section");
+                        document.querySelectorAll(".btn").forEach(btn=> {
+                        btn.classList.add("px-3", "py-1", "rounded", "bg-indigo-600", "text-white"); btn.addEventListener('click', ()=> {
+                        sections.forEach(sec=>sec.classList.add('hidden-by-default')); document.getElementById(btn.dataset.target).classList.remove('hidden-by-default'); window.scrollTo({
+                        top: 0, behavior: 'smooth'
+                        });
+                        });
+                        });
+
+                        /* File import/export */
+                        const fileInput = document.getElementById('fileInput');
+                        document.querySelector('.btn-file').addEventListener('click', ()=> fileInput.click());
+                        fileInput.addEventListener('change', handleFile, false);
+                        document.getElementById('exportJSON').addEventListener('click', exportAll);
+
+                        function handleFile(evt) {
+                        const f = evt.target.files[0];
+                        if (!f) return;
+                        const reader = new FileReader();
+                        reader.onload = e=> {
+                        try {
+                        const obj = JSON.parse(e.target.result);
+                        // basic merge/replace: if keys present replace DB keys
+                        DB = Object.assign({}, DB, obj);
+                        ensureDbShape();
+                        renderAll();
+                        saveToLocal();
+                        alert('Contenido importado correctamente.');
+                        } catch(err) {
+                        alert('Error leyendo JSON: ' + err.message);
+                        }
+                        };
+                        reader.readAsText(f);
+                        }
+                        function exportAll() {
+                        const dataStr = JSON.stringify(DB, null, 2);
+                        const blob = new Blob([dataStr], {
+                        type: "application/json"
+                        });
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement('a'); a.href = url; a.download = 'contenido_biologia_celular.json'; document.body.appendChild(a); a.click(); a.remove();
+                        URL.revokeObjectURL(url);
+                        }
+
+                        /* CRUD simple for glosario, flashcards, etc. */
+                        document.getElementById('addTerm').addEventListener('click', ()=> {
+                        const t = document.getElementById('termInput').value.trim(); const d = document.getElementById('defInput').value.trim();
+                        if (!t || !d) {
+                        alert('Rellena término y definición'); return;
+                        }
+                        DB.glossary.unshift({
+                        term: t, def: d
+                        }); document.getElementById('termInput').value = ''; document.getElementById('defInput').value = ''; renderGloss(); saveToLocal();
+                        });
+                        document.getElementById('clearGloss').addEventListener('click', ()=> {
+                        if (!confirm('Borrar todo el glosario?')) return; DB.glossary = []; renderGloss(); saveToLocal();
+                        });
+                        document.getElementById('importGloss').addEventListener('click', ()=> {
+                        try {
+                        const arr = JSON.parse(document.getElementById('glossJSON').value); if (Array.isArray(arr)) {
+                        DB.glossary = arr;
+                        renderGloss();
+                        saveToLocal();
+                        updateDashboard();
+                        alert('Glosario importado');
+                        } else alert('Formato inválido');
+                        } catch(e) {
+                        alert('JSON inválido');
+                        }
+                        });
+                        document.getElementById('exportGloss').addEventListener('click', ()=> {
+                        document.getElementById('glossJSON').value = JSON.stringify(DB.glossary, null, 2);
+                        });
+
+                        document.getElementById('loadFlash').addEventListener('click', ()=> {
+                        try {
+                        const arr = JSON.parse(document.getElementById('flashJSON').value); if (Array.isArray(arr)) {
+                        DB.flashcards = arr;
+                        renderFlashcards();
+                        saveToLocal();
+                        updateDashboard();
+                        alert('Flashcards cargadas');
+                        } else alert('Formato inválido');
+                        } catch(e) {
+                        alert('JSON inválido');
+                        }
+                        });
+                        document.getElementById('exportFlash').addEventListener('click', ()=> {
+                        document.getElementById('flashJSON').value = JSON.stringify(DB.flashcards, null, 2);
+                        });
+
+                        document.getElementById('loadStructures').addEventListener('click', ()=> {
+                        try {
+                        const arr = JSON.parse(document.getElementById('structuresJSON').value); if (Array.isArray(arr)) {
+                        DB.structures = arr;
+                        renderStructures();
+                        saveToLocal();
+                        updateDashboard();
+                        alert('Estructuras cargadas');
+                        } else alert('Formato inválido');
+                        } catch(e) {
+                        alert('JSON inválido');
+                        }
+                        });
+                        document.getElementById('exportStructures').addEventListener('click', ()=> {
+                        document.getElementById('structuresJSON').value = JSON.stringify(DB.structures, null, 2);
+                        });
+
+                        document.getElementById('loadCases').addEventListener('click', ()=> {
+                        try {
+                        const arr = JSON.parse(document.getElementById('casesJSON').value); if (Array.isArray(arr)) {
+                        DB.cases = arr;
+                        renderCases();
+                        saveToLocal();
+                        updateDashboard();
+                        alert('Casos cargados');
+                        } else alert('Formato inválido');
+                        } catch(e) {
+                        alert('JSON inválido');
+                        }
+                        });
+                        document.getElementById('exportCases').addEventListener('click', ()=> {
+                        document.getElementById('casesJSON').value = JSON.stringify(DB.cases, null, 2);
+                        });
+
+                        document.getElementById('loadInter').addEventListener('click', ()=> {
+                        try {
+                        const arr = JSON.parse(document.getElementById('interJSON').value); if (Array.isArray(arr)) {
+                        DB.interactives = arr;
+                        renderInteratives();
+                        saveToLocal();
+                        updateDashboard();
+                        alert('Interactivos cargados');
+                        } else alert('Formato inválido');
+                        } catch(e) {
+                        alert('JSON inválido');
+                        }
+                        });
+                        document.getElementById('exportInter').addEventListener('click', ()=> {
+                        document.getElementById('interJSON').value = JSON.stringify(DB.interactives, null, 2);
+                        });
+
+                        document.getElementById('loadMaps').addEventListener('click', ()=> {
+                        try {
+                        const obj = JSON.parse(document.getElementById('mapsJSON').value); if (typeof obj === 'object') {
+                        DB.maps = obj;
+                        renderMaps();
+                        saveToLocal();
+                        updateDashboard();
+                        alert('Mapas cargados');
+                        } else alert('Formato inválido');
+                        } catch(e) {
+                        alert('JSON inválido');
+                        }
+                        });
+                        document.getElementById('exportMaps').addEventListener('click', ()=> {
+                        document.getElementById('mapsJSON').value = JSON.stringify(DB.maps || {}, null, 2);
+                        });
+
+                        /* Quiz: sequential behavior */
+                        let filteredQuestions = DB.questions.slice();
+                        let qIndex = 0;
+                        let currentQuestion = null;
+                        function renderQuizTopics() {
+                        const select = document.getElementById('quizTopic');
+                        if (!select) return;
+                        select.innerHTML = '';
+                        const allOption = document.createElement('option');
+                        allOption.value = 'all';
+                        allOption.textContent = 'Todos los bloques';
+                        select.appendChild(allOption);
+                        const topics = Array.isArray(DB.quizTopics) ? DB.quizTopics: [];
+                        topics.forEach(topic => {
+                        if (!topic || !topic.value) return;
+                        const option = document.createElement('option');
+                        option.value = topic.value;
+                        option.textContent = topic.label || topic.value;
+                        select.appendChild(option);
+                        });
+                        }
+                        function refreshFiltered(topic) {
+                        filteredQuestions = (topic && topic !== 'all') ? DB.questions.filter(q=> q.topic === topic): DB.questions.slice();
+                        qIndex = 0;
+                        document.getElementById('qTotal').textContent = filteredQuestions.length;
+                        renderCurrentQuestion();
+                        }
+                        function renderCurrentQuestion() {
+                        if (filteredQuestions.length === 0) {
+                        document.getElementById('qText').textContent = 'No hay preguntas en este tema.'; document.getElementById('qOptions').innerHTML = ''; document.getElementById('qNumber').textContent = '0'; return;
+                        }
+                        if (qIndex < 0) qIndex = 0;
+                            if (qIndex >= filteredQuestions.length) qIndex = filteredQuestions.length -1;
+                            const q = filteredQuestions[qIndex];
+                            document.getElementById('qText').textContent = q.text;
+                            const opts = document.getElementById('qOptions'); opts.innerHTML = '';
+                            const questionOptions = Array.isArray(q.options) ? q.options: [];
+                            questionOptions.forEach((o, i)=> {
+                            const label = document.createElement('label'); label.className = 'block'; label.innerHTML = `<input type="radio" name="qopt" value="${i}"> ${escapeHtml(o)}`; opts.appendChild(label);
+                            });
+                            document.getElementById('qNumber').textContent = (qIndex+1);
+                            document.getElementById('qTotal').textContent = filteredQuestions.length;
+                            currentQuestion = q;
+                            }
+                            document.getElementById('quizTopic').addEventListener('change', ()=> {
+                            refreshFiltered(document.getElementById('quizTopic').value);
+                            });
+                            document.getElementById('nextQ').addEventListener('click', ()=> {
+                            if (filteredQuestions.length === 0) {
+                            alert('No hay preguntas.'); return;
+                            } if (qIndex < filteredQuestions.length-1) qIndex++; renderCurrentQuestion();
+                                });
+                                document.getElementById('prevQ').addEventListener('click', ()=> {
+                                if (filteredQuestions.length === 0) {
+                                alert('No hay preguntas.'); return;
+                                } if (qIndex > 0) qIndex--; renderCurrentQuestion();
+                                });
+                                document.getElementById('checkA').addEventListener('click', () => {
+                                const sel = document.querySelector('input[name="qopt"]:checked');
+                                const res = document.getElementById('qResult');
+
+                                if (!currentQuestion) {
+                                res.textContent = 'No hay pregunta seleccionada.';
+                                return;
+                                }
+
+                                if (!sel) {
+                                res.textContent = 'Selecciona una opción.';
+                                return;
+                                }
+
+                                const itemId = currentQuestion.id || `quiz-${qIndex}`;
+
+                                if (parseInt(sel.value) === currentQuestion.answer) {
+                                res.textContent = '✅ Correcto. ' + (currentQuestion.explain || '');
+                                markItem('quiz', itemId, true);
+                                } else {
+                                res.textContent = '❌ Incorrecto. ' + (currentQuestion.explain || '');
+                                markItem('quiz', itemId, false);
+                                }
+                                });
+
+                                document.getElementById('showAll').addEventListener('click', ()=> {
+                                document.getElementById('questionsJSON').value = JSON.stringify(DB.questions, null, 2);
+                                });
+
+                                /* Load questions JSON editor */
+                                document.getElementById('loadQuestions').addEventListener('click', ()=> {
+                                try {
+                                const arr = JSON.parse(document.getElementById('questionsJSON').value); if (Array.isArray(arr)) {
+                                DB.questions = arr;
+                                refreshFiltered(document.getElementById('quizTopic').value);
+                                renderAll();
+                                saveToLocal();
+                                updateDashboard();
+                                alert('Preguntas cargadas');
+                                } else alert('Formato inválido (se espera array).');
+                                } catch(e) {
+                                alert('JSON inválido');
+                                }
+                                });
+                                document.getElementById('loadQuizTopics').addEventListener('click', ()=> {
+                                try {
+                                const arr = JSON.parse(document.getElementById('quizTopicsJSON').value);
+                                if (Array.isArray(arr)) {
+                                DB.quizTopics = arr;
+                                renderQuizTopics();
+                                refreshFiltered(document.getElementById('quizTopic').value);
+                                saveToLocal();
+                                alert('Bloques del quiz cargados');
+                                } else {
+                                alert('Formato inválido (se espera array).');
+                                }
+                                } catch(e) {
+                                alert('JSON inválido');
+                                }
+                                });
+                                document.getElementById('exportQuizTopics').addEventListener('click', ()=> {
+                                document.getElementById('quizTopicsJSON').value = JSON.stringify(DB.quizTopics || [], null, 2);
+                                });
+
+                                /* Reset progress */
+                                document.getElementById('reset').addEventListener('click', () => {
+                                if (!confirm('Reiniciar todo el progreso?')) return;
+
+                                localStorage.removeItem('progressBySection');
+                                localStorage.removeItem('score');
+                                localStorage.removeItem('block1');
+                                localStorage.removeItem('block2');
+                                localStorage.removeItem('block3');
+
+                                updateDashboard();
+                                });
+
+                                /* initial render and quiz setup */
+                                renderAll();
+                                refreshFiltered('all');
+
+                                /* =====================
+                                HOME JSON (SOLO INICIO)
+                                ===================== */
+
+                                document.getElementById("loadHomeJSON").addEventListener("click", () => {
+                                try {
+                                const data = JSON.parse(document.getElementById("homeJSON").value);
+
+                                if (data.title) {
+                                document.getElementById("homeTitle").textContent = data.title;
+                                }
+                                if (data.description) {
+                                document.getElementById("homeDescription").innerHTML = data.description;
+                                }
+                                } catch (e) {
+                                alert("JSON inválido en Inicio");
+                                }
+                                });
+
+                                document.getElementById("exportHomeJSON").addEventListener("click", () => {
+                                const data = {
+                                title: document.getElementById("homeTitle").textContent,
+                                description: document.getElementById("homeDescription").innerHTML
+                                };
+                                document.getElementById("homeJSON").value = JSON.stringify(data, null, 2);
+                                });
+                            </script>
+                        </body>
+                    </html>
